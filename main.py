@@ -15,17 +15,19 @@ CELL_SIZE = WIDTH // 3
 # Spiellogik
 class TicTacToe:
     def __init__(self):
-        self.board = [' ' for _ in range(9)]
-        self.current_player = 'X'
+        self.reset()
 
     def is_valid_move(self, position):
-        return 0 <= position < 9 and self.board[position] == ' '
+        return 0 <= position < 9 and self.board[position] == ' ' and not self.game_over
 
     def make_move(self, position):
         if self.is_valid_move(position):
             self.board[position] = self.current_player
-            return True
-        return False
+            self.check_winner()
+            self.switch_player()
+
+    def get_valid_moves(self):
+        return [i for i in range(9) if self.board[i] == ' ']
 
     def check_winner(self):
         winning_combinations = [
@@ -36,9 +38,11 @@ class TicTacToe:
 
         for combo in winning_combinations:
             if self.board[combo[0]] == self.board[combo[1]] == self.board[combo[2]] != ' ':
+                self.game_over = True
                 return self.board[combo[0]]
 
         if ' ' not in self.board:
+            self.game_over = True
             return 'Draw'
 
         return None
@@ -46,18 +50,14 @@ class TicTacToe:
     def switch_player(self):
         self.current_player = 'O' if self.current_player == 'X' else 'X'
 
+    def ai_move(self, temperature):
+        if not self.game_over:
+            return self.make_move(random.choice(self.get_available_moves))
+
     def reset(self):
         self.board = [' ' for _ in range(9)]
         self.current_player = 'X'
-
-
-# KI-Funktion: Einfacher Zufall oder Minimax
-def ai_move(game):
-    # Zufälliger Zug (einfaches KI-Verhalten)
-    available_moves = [i for i in range(9) if game.board[i] == ' ']
-    if available_moves:
-        return random.choice(available_moves)
-    return None
+        self.game_over = False
 
 
 # Zeichnet das Spielfeld und die Spielsteine
@@ -96,9 +96,10 @@ def main():
     game = TicTacToe()
 
     # Spielmodi
-    player_vs_ai = True  # True: Spieler vs. KI, False: KI vs. KI
+    player_vs_ai = False  # True: Spieler vs. KI, False: KI vs. KI
     running = True
-    game_over = False
+    temperature = 0 # ist ein wert zwischen 0 und 1. Je höher der Wert, 
+        #desto wahrscheinlicher ist es, dass eine schlechte Option von der KI verwendet wird. 
 
     while running:
         for event in pygame.event.get():
@@ -106,39 +107,26 @@ def main():
                 running = False
 
             # Spielerinteraktion bei Spieler vs. KI
-            if player_vs_ai and not game_over and game.current_player == 'X':
+            if player_vs_ai and game.current_player == 'X':
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = get_board_position(pygame.mouse.get_pos())
-                    if game.make_move(pos):
-                        result = game.check_winner()
-                        if result:
-                            game_over = True
-                        else:
-                            game.switch_player()
+                    game.make_move(pos)
 
         # KI-Zug
-        if not game_over and (not player_vs_ai or game.current_player == 'O'):
+        if not player_vs_ai or game.current_player == 'O':
             pygame.time.delay(500)  # KI-Delay für realistischeres Verhalten
-            move = ai_move(game)
-            if move is not None:
-                game.make_move(move)
-                result = game.check_winner()
-                if result:
-                    game_over = True
-                else:
-                    game.switch_player()
+            move = game.ai_move(temperature)
 
         # Spielfeld zeichnen
         draw_board(screen, game)
         pygame.display.flip()
 
         # Spielende
-        if game_over:
+        if game.game_over:
             print("Spielende!")
-            print(f"Gewinner: {result}" if result != 'Draw' else "Unentschieden!")
+            print(f"Gewinner: {game.check_winner()}" if game.check_winner() != 'Draw' else "Unentschieden!")
             pygame.time.wait(2000)
             game.reset()
-            game_over = False
             if not player_vs_ai:
                 running = False  # Spielende bei KI vs. KI
 
