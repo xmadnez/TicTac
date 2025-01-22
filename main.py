@@ -1,6 +1,7 @@
 import pygame
 import sys
 from TicTacToe import TicTacToe
+import ai
 
 # Farben und Dimensionen
 WHITE = (255, 255, 255)
@@ -38,9 +39,18 @@ def get_board_position(mouse_pos):
     col = x // CELL_SIZE
     return row * 3 + col
 
+def get_player_name(id):
+        if id == -1:
+            return "X"
+        elif id == 1:
+            return "O"
+        else:
+            return None
+
 
 # Hauptprogramm
 def main():
+    ai.init()
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Tic Tac Toe")
@@ -48,9 +58,9 @@ def main():
     game = TicTacToe()
 
     # Spielmodi
-    player_vs_ai = False  # True: Spieler vs. KI, False: KI vs. KI
+    player_vs_ai = True  # True: Spieler vs. KI, False: KI vs. KI
     running = True
-    temperature = 0 # ist ein wert zwischen 0 und 1. Je höher der Wert, 
+    temperature = 0.1 # ist ein wert zwischen 0 und 1. Je höher der Wert, 
         #desto wahrscheinlicher ist es, dass eine schlechte Option von der KI verwendet wird. 
 
     while running:
@@ -67,7 +77,7 @@ def main():
         # KI-Zug
         if not player_vs_ai or game.current_player == 1:
             pygame.time.delay(500)  # KI-Delay für realistischeres Verhalten
-            move = game.ai_move(temperature)
+            ai.move(game, temperature)
 
         # Spielfeld zeichnen
         draw_board(screen, game)
@@ -76,7 +86,7 @@ def main():
         # Spielende
         if game.game_over:
             print("Spielende!")
-            print(f"Gewinner: {game.get_player_name(game.check_winner())}" if game.check_winner() != 0 else "Unentschieden!")
+            print(f"Gewinner: {get_player_name(game.check_winner())}" if game.check_winner() != 0 else "Unentschieden!")
             pygame.time.wait(2000)
             game.reset()
             if not player_vs_ai:
