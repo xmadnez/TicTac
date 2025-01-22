@@ -1,6 +1,7 @@
 import pygame
 import sys
 from TicTacToe import TicTacToe
+import ai
 
 # Farben und Dimensionen
 WHITE = (255, 255, 255)
@@ -72,8 +73,18 @@ def get_board_position(mouse_pos):
     col = x // CELL_SIZE
     return row * 3 + col
 
+def get_player_name(id):
+        if id == -1:
+            return "X"
+        elif id == 1:
+            return "O"
+        else:
+            return None
+
+
 # Hauptprogramm
 def main():
+    ai.init()
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Tic Tac Toe")
