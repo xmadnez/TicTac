@@ -43,8 +43,8 @@ class TicTacToe:
 
     def ai_move(self, temperature):
         if not self.game_over:
-            return self.make_move(random.choice(self.get_available_moves))
-        
+            return self.make_move(random.choice(self.get_valid_moves()))
+
     def get_player_name(id):
         if id == -1:
             return "X"
@@ -54,7 +54,7 @@ class TicTacToe:
             return None
 
     def reset(self):
-        self.board = [' ' for _ in range(9)]
+        self.board = [0 for _ in range(9)]  # Korrekte Initialisierung
         self.current_player = -1
         self.game_over = False
         return self.board
