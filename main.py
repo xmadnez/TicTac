@@ -131,7 +131,7 @@ def main():
         # KI-Zug
         if winner_message is None and (game_mode == "player_vs_ai" and game.current_player == 1):
             pygame.time.delay(500)
-            game.ai_move(temperature)
+            ai.move(game, temperature)
 
         # Spielende prüfen
         if game.game_over and winner_message is None:
