@@ -12,18 +12,45 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # TicTacToe Neural Network Model
 class TicTacToeNN(nn.Module):
+
     def __init__(self):
         super(TicTacToeNN, self).__init__()
         self.fc1 = nn.Linear(9, 128)
         self.fc2 = nn.Linear(128, 128)
         self.fc3 = nn.Linear(128, 9)  # Output a 9-dimensional vector for 9 possible moves
+        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.memory = deque(maxlen=10000) 
     
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)  # Raw Q-values, no activation here
         return x
-
+    
+    def train(self, memory, batch_size=32, gamma=0.9):
+        self.memory += memory
+        if len(self.memory) >= batch_size:
+            batch = random.sample(self.memory, batch_size)
+            for state, action, reward, next_state, done in batch:
+                state_b_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(device)
+                next_state_b_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0).to(device)
+                
+                # Compute Q-values and targets
+                q_values: torch.tensor = model(state_b_tensor)
+                next_q_values: torch.tensor = model(next_state_b_tensor)
+                
+                target = reward + (gamma * torch.max(next_q_values).item() * (1 - done))
+                current_q_value = q_values[0][action]
+                
+                # Compute loss and update weights
+                loss = self.criterion(current_q_value, torch.tensor(target, dtype=torch.float32).to(device))
+                
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+            return loss.item()
+            
 
 model: TicTacToeNN = None
 
@@ -43,10 +70,7 @@ def init():
 
 
 # Training the model using Q-learning
-def train_model(model: TicTacToeNN, episodes, epsilon=0.1, gamma=0.9, batch_size=32, temperature=0.01):
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    criterion = nn.MSELoss()
-    memory = deque(maxlen=10000)  # Replay buffer
+def train_model(model: TicTacToeNN, episodes, epsilon=0.1, temperature=0.01):
     env = TicTacToe()
 
     for episode in range(episodes):
@@ -83,33 +107,14 @@ def train_model(model: TicTacToeNN, episodes, epsilon=0.1, gamma=0.9, batch_size
             (memory_p1 if env.current_player == -1 else memory_p2).append((state, action, reward, env.board, env.game_over))
 
             state = env.board
-        memory += memory_p1
-        memory += memory_p2
+        model.train(memory_p1)
+        loss = model.train(memory_p2)
 
-        # Sample a batch from the replay buffer
-        if len(memory) >= batch_size:
-            batch = random.sample(memory, batch_size)
-            for state, action, reward, next_state, done in batch:
-                state_b_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(device)
-                next_state_b_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0).to(device)
-                
-                # Compute Q-values and targets
-                q_values: torch.tensor = model(state_b_tensor)
-                next_q_values: torch.tensor = model(next_state_b_tensor)
-                
-                target = reward + (gamma * torch.max(next_q_values).item() * (1 - done))
-                current_q_value = q_values[0][action]
-                
-                # Compute loss and update weights
-                loss = criterion(current_q_value, torch.tensor(target, dtype=torch.float32).to(device))
-                
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+        
             
         
         if (episode + 1) % 100 == 0:
-            print(f"Episode {episode + 1}/{episodes}, Loss: {loss.item()}")
+            print(f"Episode {episode + 1}/{episodes}, Loss: {loss}")
     
     # Save the trained model weights
     torch.save(model.state_dict(), 'tictactoe_model.pth')
