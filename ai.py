@@ -145,6 +145,9 @@ def model_turn(model: TicTacToeNN, state, temperature=0.01):
     else:
         # return np.random.choice(9, p=val)
         valid_actions = [i for i in range(9) if state[i] == 0]
+        # all valid actions are 0 so just return first valid action
+        if not np.any(val[valid_actions]):
+            return valid_actions[0]
         prop = val[valid_actions] / np.sum(val[valid_actions])
         return np.random.choice(valid_actions, p=prop)
     
