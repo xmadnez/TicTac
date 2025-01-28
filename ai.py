@@ -8,8 +8,7 @@ import random
 from TicTacToe import TicTacToe
 
 # Check if CUDA (GPU) is available and use it if possible
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # TicTacToe Neural Network Model
 class TicTacToeNN(nn.Module):
@@ -40,17 +39,19 @@ def init():
             model.eval()
             model.to(device)
         else:
-            train_model(model, episodes=1000, temperature=0.5)
+            train_model(model, episodes=1000, temperature=0.01)
 
 
 # Training the model using Q-learning
-def train_model(model: TicTacToeNN, episodes, epsilon=0.1, gamma=0.9, batch_size=32, temperature=1.0):
+def train_model(model: TicTacToeNN, episodes, epsilon=0.1, gamma=0.9, batch_size=32, temperature=0.01):
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.MSELoss()
     memory = deque(maxlen=10000)  # Replay buffer
     env = TicTacToe()
 
     for episode in range(episodes):
+        memory_p1 = deque(maxlen=10000)
+        memory_p2 = deque(maxlen=10000)    
         state = env.reset()
         while not env.game_over:
             
@@ -63,26 +64,41 @@ def train_model(model: TicTacToeNN, episodes, epsilon=0.1, gamma=0.9, batch_size
             # Take the action and observe the result
             reward = env.make_move(action)
             if env.game_over:
-                reward += env.check_winner() * -env.current_player
+                winner = env.check_winner()
+                if env.current_player == -1:
+                    mem = list(memory_p1.pop())
+                    mem[2] = winner * env.current_player
+                    mem[4] = True
+                    memory_p1.append(tuple(mem))
+                    reward += winner * -env.current_player
+                else:
+                    mem = list(memory_p2.pop())
+                    mem[2] = winner * env.current_player
+                    mem[4] = True
+                    memory_p2.append(tuple(mem))
+                    reward += winner * -env.current_player
+
             
             # Store the experience in the replay buffer
-            memory.append((state, action, reward, env.board, env.game_over))
+            (memory_p1 if env.current_player == -1 else memory_p2).append((state, action, reward, env.board, env.game_over))
 
             state = env.board
+        memory += memory_p1
+        memory += memory_p2
 
         # Sample a batch from the replay buffer
         if len(memory) >= batch_size:
             batch = random.sample(memory, batch_size)
-            for state_b, action_b, reward_b, next_state_b, done_b in batch:
-                state_b_tensor = torch.tensor(state_b, dtype=torch.float32).unsqueeze(0).to(device)
-                next_state_b_tensor = torch.tensor(next_state_b, dtype=torch.float32).unsqueeze(0).to(device)
+            for state, action, reward, next_state, done in batch:
+                state_b_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(device)
+                next_state_b_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0).to(device)
                 
                 # Compute Q-values and targets
-                q_values_b: torch.tensor = model(state_b_tensor)
-                next_q_values_b: torch.tensor = model(next_state_b_tensor)
+                q_values: torch.tensor = model(state_b_tensor)
+                next_q_values: torch.tensor = model(next_state_b_tensor)
                 
-                target = reward_b + (gamma * torch.max(next_q_values_b).item() * (1 - done_b))
-                current_q_value = q_values_b[0][action_b]
+                target = reward + (gamma * torch.max(next_q_values).item() * (1 - done))
+                current_q_value = q_values[0][action]
                 
                 # Compute loss and update weights
                 loss = criterion(current_q_value, torch.tensor(target, dtype=torch.float32).to(device))
@@ -120,16 +136,17 @@ def get_matrix_with_model(model: TicTacToeNN, state, temperature):
         return prop_values
 
 # Function to let the model make a decision (based on current model)
-def model_turn(model: TicTacToeNN, state, temperature=1.0):
+def model_turn(model: TicTacToeNN, state, temperature=0.01):
     val = get_matrix_with_model(model, state, temperature)
     if temperature == 0:
-        return np.argmax(val)
-        # valid_actions = [i for i in range(9) if state[i] == 0]
-        # return valid_actions[np.argmax(val[valid_actions])]
+        # return np.argmax(val)
+        valid_actions = [i for i in range(9) if state[i] == 0]
+        return valid_actions[np.argmax(val[valid_actions])]
     else:
-        return np.random.choice(9, p=val)
-        # valid_actions = [i for i in range(9) if state[i] == 0]
-        # return np.random.choice(valid_actions, p=[p for i, p in valid_actions if state[i] == 0])
+        # return np.random.choice(9, p=val)
+        valid_actions = [i for i in range(9) if state[i] == 0]
+        prop = val[valid_actions] / np.sum(val[valid_actions])
+        return np.random.choice(valid_actions, p=prop)
     
 def get_matrix(state, temperature):
     global model
