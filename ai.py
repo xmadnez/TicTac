@@ -28,8 +28,12 @@ class TicTacToeNN(nn.Module):
         x = self.fc3(x)  # Raw Q-values, no activation here
         return x
     
-    def train(self, memory, batch_size=32, gamma=0.9):
-        self.memory += memory
+    def train_with_list(self, memories, batch_size=32, gamma=0.9):
+        for memory in memories:
+            self.memory.append(memory.to_tupel())
+        return self.train_without_memory(batch_size=batch_size, gamma=gamma)
+
+    def train_without_memory(self, batch_size=128, gamma=0.9):
         if len(self.memory) >= batch_size:
             batch = random.sample(self.memory, batch_size)
             for state, action, reward, next_state, done in batch:
@@ -50,11 +54,19 @@ class TicTacToeNN(nn.Module):
                 loss.backward()
                 self.optimizer.step()
             return loss.item()
+    
+    def train_with_deque(self, memory, batch_size=32, gamma=0.9):
+        self.memory += memory
+        return self.train_without_memory(batch_size=batch_size, gamma=gamma)
+    
+    def save(self):
+        torch.save(self.state_dict(), 'tictactoe_model.pth')
+
             
-
 model: TicTacToeNN = None
+    
 
-def init():
+def getModel():
     PATH = "tictactoe_model.pth"
     global model
     if model is None:
@@ -66,17 +78,17 @@ def init():
             model.eval()
             model.to(device)
         else:
-            train_model(model, episodes=1000, temperature=0.01)
+            train_model(model, episodes=1000, temperature=0.1)
+    return model
 
 
 # Training the model using Q-learning
 def train_model(model: TicTacToeNN, episodes, epsilon=0.1, temperature=0.01):
-    env = TicTacToe()
+    env = TicTacToe(keepMemory=True)
 
+    valid=0
+    invalid: int=0
     for episode in range(episodes):
-        memory_p1 = deque(maxlen=10000)
-        memory_p2 = deque(maxlen=10000)    
-        state = env.reset()
         while not env.game_over:
             
             # Epsilon-greedy action selection with temperature-controlled softmax
@@ -84,40 +96,27 @@ def train_model(model: TicTacToeNN, episodes, epsilon=0.1, temperature=0.01):
                 action = random.choice(env.get_valid_moves())
             else:
                 action = model_turn(model, env.board, temperature)
+
+            if env.is_valid_move(action):
+                valid +=1
+            else:
+                invalid +=1
+
+            env.make_move(action)
             
-            # Take the action and observe the result
-            reward = env.make_move(action)
-            if env.game_over:
-                winner = env.check_winner()
-                if env.current_player == -1:
-                    mem = list(memory_p1.pop())
-                    mem[2] = winner * env.current_player
-                    mem[4] = True
-                    memory_p1.append(tuple(mem))
-                    reward += winner * -env.current_player
-                else:
-                    mem = list(memory_p2.pop())
-                    mem[2] = winner * env.current_player
-                    mem[4] = True
-                    memory_p2.append(tuple(mem))
-                    reward += winner * -env.current_player
-
             
-            # Store the experience in the replay buffer
-            (memory_p1 if env.current_player == -1 else memory_p2).append((state, action, reward, env.board, env.game_over))
-
-            state = env.board
-        model.train(memory_p1)
-        loss = model.train(memory_p2)
-
-        
+        loss = env.trainAi()
+        env.reset()
             
         
         if (episode + 1) % 100 == 0:
             print(f"Episode {episode + 1}/{episodes}, Loss: {loss}")
+            print(f"valid {valid}/{invalid}, {invalid/(valid+invalid)}")
+            valid=0
+            invalid=0
     
     # Save the trained model weights
-    torch.save(model.state_dict(), 'tictactoe_model.pth')
+    model.save()
     print("Model training completed and weights saved.")
 
 def get_matrix_with_model(model: TicTacToeNN, state, temperature):
@@ -144,11 +143,15 @@ def get_matrix_with_model(model: TicTacToeNN, state, temperature):
 def model_turn(model: TicTacToeNN, state, temperature=0.01):
     val = get_matrix_with_model(model, state, temperature)
     if temperature == 0:
+        # # to make invalid moves possible
         # return np.argmax(val)
+        # to only make valid moves possible
         valid_actions = [i for i in range(9) if state[i] == 0]
         return valid_actions[np.argmax(val[valid_actions])]
     else:
+        # # to make invalid moves possible
         # return np.random.choice(9, p=val)
+        # to only make valid moves possible
         valid_actions = [i for i in range(9) if state[i] == 0]
         # all valid actions are 0 so just return first valid action
         if not np.any(val[valid_actions]):
@@ -157,18 +160,12 @@ def model_turn(model: TicTacToeNN, state, temperature=0.01):
         return np.random.choice(valid_actions, p=prop)
     
 def get_matrix(state, temperature):
-    global model
-    if model == None:
-        init()
-    return  get_matrix_with_model(model, state, temperature)
+    return  get_matrix_with_model(getModel(), state, temperature)
 
 def move(game: TicTacToe, temperature):
-    global model
-    if model == None:
-        init()
     if not game.game_over:
         for i in range(100):
-            move = model_turn(model, game.board, temperature)
+            move = model_turn(getModel(), game.board, temperature)
             print(f"ai wants to move to {move}")
             if game.is_valid_move(move):
                 return game.make_move(move)

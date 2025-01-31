@@ -9,7 +9,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 GRAY = (200, 200, 200)
-WIDTH, HEIGHT = 600, 700  # Zusätzlicher Platz für Slider und Buttons
+WIDTH, HEIGHT = 600, 800  # Zusätzlicher Platz für Slider und Buttons
 LINE_WIDTH = 15
 CELL_SIZE = WIDTH // 3
 
@@ -23,7 +23,6 @@ def draw_board(screen: pygame.Surface, game, show_debug, temperature):
 
     if show_debug:
         matrix = ai.get_matrix(game.board, temperature)
-        # print (f"{type(matrix[0])} {matrix[0]:.6f}")
 
     # Spielsteine zeichnen
     for i, cell in enumerate(game.board):
@@ -93,7 +92,7 @@ def get_player_name(id):
 
 # Hauptprogramm
 def main():
-    ai.init()
+    ai.getModel()
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Tic Tac Toe")
@@ -135,6 +134,8 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN and winner_message is not None:
                 x, y = event.pos
                 if 200 <= x <= 400 and WIDTH + 80 <= y <= WIDTH + 130:
+                    game.trainAi()
+                    game.writeMemoryToFile()
                     game.reset()
                     winner_message = None
 
