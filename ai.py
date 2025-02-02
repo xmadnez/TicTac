@@ -33,7 +33,7 @@ class TicTacToeNN(nn.Module):
             self.memory.append(memory.to_tupel())
         return self.train_without_memory(batch_size=batch_size, gamma=gamma)
 
-    def train_without_memory(self, batch_size=128, gamma=0.9):
+    def train_without_memory(self, batch_size=32, gamma=0.9):
         if len(self.memory) >= batch_size:
             batch = random.sample(self.memory, batch_size)
             for state, action, reward, next_state, done in batch:
@@ -41,8 +41,8 @@ class TicTacToeNN(nn.Module):
                 next_state_b_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0).to(device)
                 
                 # Compute Q-values and targets
-                q_values: torch.tensor = model(state_b_tensor)
-                next_q_values: torch.tensor = model(next_state_b_tensor)
+                q_values: torch.tensor = self(state_b_tensor)
+                next_q_values: torch.tensor = self(next_state_b_tensor)
                 
                 target = reward + (gamma * torch.max(next_q_values).item() * (1 - done))
                 current_q_value = q_values[0][action]
@@ -78,12 +78,12 @@ def getModel():
             model.eval()
             model.to(device)
         else:
-            train_model(model, episodes=1000, temperature=0.1)
+            train_model(model, episodes=1000, temperature=0.7)
     return model
 
 
 # Training the model using Q-learning
-def train_model(model: TicTacToeNN, episodes, epsilon=0.1, temperature=0.01):
+def train_model(model: TicTacToeNN, episodes, epsilon=0.1, temperature=0.7):
     env = TicTacToe(keepMemory=True)
 
     valid=0
@@ -155,7 +155,7 @@ def model_turn(model: TicTacToeNN, state, temperature=0.01):
         valid_actions = [i for i in range(9) if state[i] == 0]
         # all valid actions are 0 so just return first valid action
         if not np.any(val[valid_actions]):
-            return valid_actions[0]
+            return np.random.choice(valid_actions)
         prop = val[valid_actions] / np.sum(val[valid_actions])
         return np.random.choice(valid_actions, p=prop)
     
