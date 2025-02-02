@@ -29,7 +29,7 @@ def draw_board(screen: pygame.Surface, game, show_debug, temperature):
         y = (i // 3) * CELL_SIZE
         if show_debug:
             font = pygame.font.Font(None, 36)
-            label = font.render(f"{matrix[i]:.6f}" if matrix[i]!=0 else 0, 1, BLACK)
+            label = font.render(f"{matrix[i]:.6f}" if matrix[i]!=0 else "0", 1, BLACK)
             screen.blit(label, (x + 3 , y + CELL_SIZE // 2))
             
         if cell == -1:  # X
