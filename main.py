@@ -13,15 +13,23 @@ LINE_WIDTH = 15
 CELL_SIZE = WIDTH // 3
 
 # Zeichnet das Spielfeld und die Spielsteine
-def draw_board(screen, game):
+def draw_board(screen: pygame.Surface, game, show_debug, temperature):
     screen.fill(WHITE)
     for i in range(1, 3):
         pygame.draw.line(screen, BLACK, (0, CELL_SIZE * i), (WIDTH, CELL_SIZE * i), LINE_WIDTH)
         pygame.draw.line(screen, BLACK, (CELL_SIZE * i, 0), (CELL_SIZE * i, WIDTH), LINE_WIDTH)
 
+    if show_debug:
+        matrix = ai.get_matrix(game.board, temperature)
+        
     for i, cell in enumerate(game.board):
         x = (i % 3) * CELL_SIZE
         y = (i // 3) * CELL_SIZE
+        if show_debug:
+            font = pygame.font.Font(None, 36)
+            label = font.render(f"{matrix[i]:.6f}" if matrix[i]!=0 else 0, 1, BLACK)
+            screen.blit(label, (x + 3 , y + CELL_SIZE // 2))
+            
         if cell == -1:  # X
             pygame.draw.line(screen, RED, (x + 30, y + 30), (x + CELL_SIZE - 30, y + CELL_SIZE - 30), LINE_WIDTH)
             pygame.draw.line(screen, RED, (x + CELL_SIZE - 30, y + 30), (x + 30, y + CELL_SIZE - 30), LINE_WIDTH)
@@ -32,13 +40,17 @@ def draw_board(screen, game):
 def draw_controls(screen, temperature, winner_message=None):
     font = pygame.font.Font(None, 36)
 
-    temp_label = font.render("Schwierigkeit", True, BLACK)
+    # Temperatur-Slider
+    temp_label = font.render(f"temp {temperature}", True, BLACK)
+    
     screen.blit(temp_label, (20, WIDTH + 10))
     pygame.draw.rect(screen, GRAY, (200, WIDTH + 20, 200, 10))
     pygame.draw.circle(screen, BLACK, (200 + int(temperature * 200), WIDTH + 25), 10)
 
     give_up_rect = pygame.Rect(450, WIDTH + 20, 120, 50)
     pygame.draw.rect(screen, RED, give_up_rect)
+    
+    # give_up_label = font.render("Reset", True, WHITE)
     give_up_label = font.render("Aufgeben", True, WHITE)
     screen.blit(give_up_label, (448, WIDTH + 30))
 
@@ -94,9 +106,11 @@ def main():
     clock = pygame.time.Clock()
     
     running = True
+    
     game_mode = None  # Auswahl zwischen "player_vs_player" und "player_vs_ai"
     temperature = 0.5  
     winner_message = None  
+    show_debug = True
 
     # Startbildschirm für die Spielmodus-Wahl
     while running and game_mode is None:
@@ -158,7 +172,7 @@ def main():
         # KI-Zug (nur wenn Spieler vs KI)
         if winner_message is None and game_mode == "player_vs_ai" and game.current_player == 1:
             pygame.time.delay(500)
-            game.ai_move(temperature)
+            ai.move(game, temperature)
 
         # Spielende prüfen
         if game.game_over and winner_message is None:
@@ -170,8 +184,9 @@ def main():
             else:
                 winner_message = "Unentschieden!"
 
-        # Spielfeld & UI zeichnen
-        draw_board(screen, game)
+        # Spielfeld zeichnen
+        draw_board(screen, game, show_debug, temperature)
+        
         if winner_message:
             draw_winner_message(screen, winner_message)
         draw_controls(screen, temperature, winner_message)
