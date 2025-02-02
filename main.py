@@ -8,6 +8,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
 GRAY = (200, 200, 200)
 WIDTH, HEIGHT = 600, 800  # Zusätzlicher Platz für Slider und Buttons
 LINE_WIDTH = 15
@@ -89,7 +90,12 @@ def draw_start_screen(screen):
     player_vs_ai_label = font.render("Gegen KI", True, WHITE)
     screen.blit(player_vs_ai_label, (WIDTH // 2 - player_vs_ai_label.get_width() // 2, 360))
 
-    return player_vs_player_rect, player_vs_ai_rect
+    ai_vs_ai_rect = pygame.Rect(WIDTH // 2 - 150, 450, 300, 50)
+    pygame.draw.rect(screen, GREEN, ai_vs_ai_rect)
+    ai_vs_ai_label = font.render("KI Gegen KI", True, WHITE)
+    screen.blit(ai_vs_ai_label, (WIDTH // 2 - ai_vs_ai_label.get_width() // 2, 460))
+
+    return player_vs_player_rect, player_vs_ai_rect, ai_vs_ai_rect
 
 # Spielfeldposition bestimmen
 def get_board_position(mouse_pos):
@@ -117,7 +123,7 @@ def main():
 
     # Startbildschirm für die Spielmodus-Wahl
     while running and game_mode is None:
-        player_vs_player_rect, player_vs_ai_rect = draw_start_screen(screen)
+        player_vs_player_rect, player_vs_ai_rect, ai_vs_ai_rect = draw_start_screen(screen)
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -129,7 +135,8 @@ def main():
                     game_mode = "player_vs_player"
                 elif player_vs_ai_rect.collidepoint(event.pos):
                     game_mode = "player_vs_ai"
-
+                elif ai_vs_ai_rect.collidepoint(event.pos):
+                    game_mode = "ai_vs_ai"
     # Spiellogik starten
     game = TicTacToe()
 
@@ -175,7 +182,7 @@ def main():
                     winner_message = None
 
         # KI-Zug (nur wenn Spieler vs KI)
-        if winner_message is None and game_mode == "player_vs_ai" and game.current_player == 1:
+        if winner_message is None and (game_mode == "player_vs_ai" and game.current_player == 1 or game_mode == "ai_vs_ai"):
             pygame.time.delay(500)
             ai.move(game, temperature)
 
@@ -183,9 +190,9 @@ def main():
         if game.game_over and winner_message is None:
             winner = game.check_winner()
             if winner == -1:
-                winner_message = "Spieler gewinnt!"
+                winner_message = "Spieler X gewinnt!"
             elif winner == 1:
-                winner_message = "KI gewinnt!"
+                winner_message = "Spieler O gewinnt!"
             else:
                 winner_message = "Unentschieden!"
 
